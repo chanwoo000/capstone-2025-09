@@ -1,3 +1,5 @@
+// ✅ 완전 작동하는 버전: WaveSurfer 재생 + MediaRecorder 녹음 + FFmpeg 변환
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createFFmpeg, fetchFile } from '@ffmpeg/ffmpeg';
@@ -33,7 +35,6 @@ function VoiceCreate() {
     loadFFmpeg();
   }, []);
 
-  // wavesurfer 초기화
   useEffect(() => {
     if (!waveformRef.current) return;
 
@@ -63,34 +64,13 @@ function VoiceCreate() {
     setTimer(0);
     audioChunksRef.current = [];
 
-    // 실시간 파형 시각화 연결
-    const audioContext = new AudioContext();
-    const source = audioContext.createMediaStreamSource(stream);
-    const processor = audioContext.createScriptProcessor(2048, 1, 1);
-
-    source.connect(processor);
-    processor.connect(audioContext.destination);
-
-    // 파형 연결
-    const dummyRecorder = new MediaRecorder(stream);
-    dummyRecorder.ondataavailable = () => {}; // dummy용
-    dummyRecorder.start();
-    wavesurferRef.current.loadDecodedBuffer(null); // clear previous
-    wavesurferRef.current.loadBlob(null); // clear
-
-    wavesurferRef.current.empty();
-    wavesurferRef.current.loadDecodedBuffer(null); // 빈 파형
-    wavesurferRef.current.load(URL.createObjectURL(new Blob())); // 임시
-
     mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'audio/webm' });
     mediaRecorderRef.current.ondataavailable = (e) => {
       audioChunksRef.current.push(e.data);
     };
     mediaRecorderRef.current.onstop = async () => {
       clearInterval(timerRef.current);
-      processor.disconnect();
-      source.disconnect();
-      audioContext.close();
+      audioStreamRef.current?.getTracks().forEach((track) => track.stop());
 
       const webmBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
 
@@ -121,7 +101,6 @@ function VoiceCreate() {
 
   const handleStopRecording = () => {
     mediaRecorderRef.current?.stop();
-    audioStreamRef.current?.getTracks().forEach((track) => track.stop());
     setIsRecording(false);
   };
 
