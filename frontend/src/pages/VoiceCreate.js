@@ -207,7 +207,8 @@ function VoiceCreate() {
           </button>
         </div>
       </div>
-      );
-      }
+    </div>
+  );
+}
 
-      export default VoiceCreate;
+export default VoiceCreate;
