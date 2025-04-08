@@ -194,7 +194,7 @@ function VoiceCreate() {
 
             {/* 시간 */}
             <span className="text-sm text-[#7C3AED] w-[60px] text-right">
-              {formatTime(audioBlob ? duration : timer)}
+              {formatTime(audioBlob ? duration : duration)}
             </span>
           </div>
 
