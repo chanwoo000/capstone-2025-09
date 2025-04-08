@@ -1,11 +1,10 @@
-import React, {useState, useRef, useEffect} from 'react';
-import {useNavigate} from 'react-router-dom';
-import {createFFmpeg, fetchFile} from '@ffmpeg/ffmpeg';
+import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { createFFmpeg, fetchFile } from '@ffmpeg/ffmpeg';
 import WaveSurfer from 'wavesurfer.js';
 import MicrophonePlugin from 'wavesurfer.js/dist/plugin/wavesurfer.microphone';
 import Logo from '../icons/covosLogo.svg';
-import {Mic, Pause, Play} from 'lucide-react';
-
+import { Mic, Pause, Play } from 'lucide-react';
 
 function VoiceCreate() {
   const [isRecording, setIsRecording] = useState(false);
@@ -15,6 +14,7 @@ function VoiceCreate() {
   const [isFFmpegLoaded, setIsFFmpegLoaded] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState('00:00');
+  const [currentTime, setCurrentTime] = useState(0);
 
   const ffmpegRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -28,7 +28,7 @@ function VoiceCreate() {
 
   useEffect(() => {
     const loadFFmpeg = async () => {
-      const ffmpeg = createFFmpeg({log: false});
+      const ffmpeg = createFFmpeg({ log: false });
       await ffmpeg.load();
       ffmpegRef.current = ffmpeg;
       setIsFFmpegLoaded(true);
@@ -47,56 +47,73 @@ function VoiceCreate() {
       barWidth: 2,
       height: 60,
       responsive: true,
-      plugins: [MicrophonePlugin.create()]
+      plugins: [MicrophonePlugin.create()],
     });
 
-    wavesurferRef.current.on('finish', () => setIsPlaying(false));
+    wavesurferRef.current.on('finish', () => {
+      setIsPlaying(false);
+      setCurrentTime(wavesurferRef.current.getDuration());
+    });
 
     return () => {
       wavesurferRef.current?.destroy();
     };
   }, []);
 
+  // 재생 시간 추적
+  useEffect(() => {
+    if (!wavesurferRef.current || !audioBlob) return;
+
+    const ws = wavesurferRef.current;
+    const updateTime = () => setCurrentTime(ws.getCurrentTime());
+
+    ws.on('audioprocess', updateTime);
+    return () => {
+      ws.un('audioprocess', updateTime);
+    };
+  }, [audioBlob]);
+
   const handleStartRecording = async () => {
     if (!isFFmpegLoaded) return alert('FFmpeg 로딩 중입니다.');
 
-    const stream = await navigator.mediaDevices.getUserMedia({audio: true});
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     audioStreamRef.current = stream;
     setAudioBlob(null);
     setTimer(0);
     audioChunksRef.current = [];
 
-    // 실시간 마이크 파형 시각화 시작
     wavesurferRef.current.microphone.start();
 
-    mediaRecorderRef.current = new MediaRecorder(stream, {mimeType: 'audio/webm'});
+    mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'audio/webm' });
     mediaRecorderRef.current.ondataavailable = (e) => {
       audioChunksRef.current.push(e.data);
     };
     mediaRecorderRef.current.onstop = async () => {
       clearInterval(timerRef.current);
       audioStreamRef.current?.getTracks().forEach((track) => track.stop());
-
-      // 실시간 마이크 파형 시각화 중단
       wavesurferRef.current.microphone.stop();
 
-      const webmBlob = new Blob(audioChunksRef.current, {type: 'audio/webm'});
+      const webmBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
 
       try {
         const ffmpeg = ffmpegRef.current;
-        const file = new File([webmBlob], 'input.webm', {type: 'audio/webm'});
+        const file = new File([webmBlob], 'input.webm', { type: 'audio/webm' });
         ffmpeg.FS('writeFile', 'input.webm', await fetchFile(file));
         await ffmpeg.run('-i', 'input.webm', 'output.wav');
         const data = ffmpeg.FS('readFile', 'output.wav');
-        const wavBlob = new Blob([data.buffer], {type: 'audio/wav'});
+        const wavBlob = new Blob([data.buffer], { type: 'audio/wav' });
         setAudioBlob(wavBlob);
 
         const audioUrl = URL.createObjectURL(wavBlob);
         wavesurferRef.current.load(audioUrl);
-        wavesurferRef.current.on('ready', () => {
-          const dur = wavesurferRef.current.getDuration();
-          setDuration(formatTime(dur));
-        });
+
+        // 전체 길이 가져오기
+        const tempAudio = new Audio(audioUrl);
+        tempAudio.onloadedmetadata = () => {
+          const dur = tempAudio.duration;
+          setDuration(!isNaN(dur) ? formatTime(dur) : '00:00');
+          setCurrentTime(0); // 초기화
+        };
       } catch (err) {
         console.error('WAV 변환 오류:', err);
       }
@@ -124,7 +141,7 @@ function VoiceCreate() {
     const formData = new FormData();
     formData.append('userId', sessionStorage.getItem('userId'));
     formData.append('name', voicePackName);
-    formData.append('voiceFile', new File([audioBlob], 'voice.wav', {type: 'audio/wav'}));
+    formData.append('voiceFile', new File([audioBlob], 'voice.wav', { type: 'audio/wav' }));
 
     try {
       const res = await fetch(`${process.env.REACT_APP_VOICEPACK_API_URL}/convert`, {
@@ -141,6 +158,7 @@ function VoiceCreate() {
   };
 
   const formatTime = (time) => {
+    if (typeof time !== 'number' || isNaN(time)) return '00:00';
     const mins = String(Math.floor(time / 60)).padStart(2, '0');
     const secs = String(Math.floor(time % 60)).padStart(2, '0');
     return `${mins}:${secs}`;
@@ -149,7 +167,7 @@ function VoiceCreate() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#f5f4ff] px-4 py-8">
       <div className="mb-8 cursor-pointer" onClick={() => navigate('/landing')}>
-        <img src={Logo} alt="Logo"/>
+        <img src={Logo} alt="Logo" />
       </div>
 
       <div className="w-full max-w-2xl bg-white shadow-lg rounded-xl p-8">
@@ -178,23 +196,24 @@ function VoiceCreate() {
               }`}
               disabled={!isFFmpegLoaded}
             >
-              <Mic/>
+              <Mic />
             </button>
 
+            {/* 재생 버튼 */}
             <button
               onClick={togglePlay}
               className="w-12 h-12 rounded-full bg-[#7C3AED] text-white text-xl flex items-center justify-center shadow-md hover:bg-[#6b2ed4] transition disabled:bg-gray-300"
               disabled={!audioBlob}
             >
-              {isPlaying ? <Pause/> : <Play/>}
+              {isPlaying ? <Pause /> : <Play />}
             </button>
 
-            {/* 파형 영역 */}
-            <div ref={waveformRef} className="flex-1 h-[60px]"/>
+            {/* 파형 */}
+            <div ref={waveformRef} className="flex-1 h-[60px]" />
 
-            {/* 시간 */}
-            <span className="text-sm text-[#7C3AED] w-[60px] text-right">
-              {formatTime(audioBlob ? timer : timer)}
+            {/* 시간 표시: 현재 / 전체 */}
+            <span className="text-sm text-[#7C3AED] w-[80px] text-right">
+              {audioBlob ? `${formatTime(currentTime)} / ${duration}` : formatTime(timer)}
             </span>
           </div>
 
