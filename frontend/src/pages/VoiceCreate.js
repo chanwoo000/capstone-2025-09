@@ -1,9 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { createFFmpeg, fetchFile } from '@ffmpeg/ffmpeg';
+import React, {useState, useRef, useEffect} from 'react';
+import {useNavigate} from 'react-router-dom';
+import {createFFmpeg, fetchFile} from '@ffmpeg/ffmpeg';
 import WaveSurfer from 'wavesurfer.js';
 import MicrophonePlugin from 'wavesurfer.js/dist/plugin/wavesurfer.microphone';
 import Logo from '../icons/covosLogo.svg';
+import {Mic, Pause, Play} from 'lucide-react';
+
 
 function VoiceCreate() {
   const [isRecording, setIsRecording] = useState(false);
@@ -26,7 +28,7 @@ function VoiceCreate() {
 
   useEffect(() => {
     const loadFFmpeg = async () => {
-      const ffmpeg = createFFmpeg({ log: false });
+      const ffmpeg = createFFmpeg({log: false});
       await ffmpeg.load();
       ffmpegRef.current = ffmpeg;
       setIsFFmpegLoaded(true);
@@ -58,7 +60,7 @@ function VoiceCreate() {
   const handleStartRecording = async () => {
     if (!isFFmpegLoaded) return alert('FFmpeg 로딩 중입니다.');
 
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const stream = await navigator.mediaDevices.getUserMedia({audio: true});
     audioStreamRef.current = stream;
     setAudioBlob(null);
     setTimer(0);
@@ -67,7 +69,7 @@ function VoiceCreate() {
     // 실시간 마이크 파형 시각화 시작
     wavesurferRef.current.microphone.start();
 
-    mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+    mediaRecorderRef.current = new MediaRecorder(stream, {mimeType: 'audio/webm'});
     mediaRecorderRef.current.ondataavailable = (e) => {
       audioChunksRef.current.push(e.data);
     };
@@ -78,15 +80,15 @@ function VoiceCreate() {
       // 실시간 마이크 파형 시각화 중단
       wavesurferRef.current.microphone.stop();
 
-      const webmBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+      const webmBlob = new Blob(audioChunksRef.current, {type: 'audio/webm'});
 
       try {
         const ffmpeg = ffmpegRef.current;
-        const file = new File([webmBlob], 'input.webm', { type: 'audio/webm' });
+        const file = new File([webmBlob], 'input.webm', {type: 'audio/webm'});
         ffmpeg.FS('writeFile', 'input.webm', await fetchFile(file));
         await ffmpeg.run('-i', 'input.webm', 'output.wav');
         const data = ffmpeg.FS('readFile', 'output.wav');
-        const wavBlob = new Blob([data.buffer], { type: 'audio/wav' });
+        const wavBlob = new Blob([data.buffer], {type: 'audio/wav'});
         setAudioBlob(wavBlob);
 
         const audioUrl = URL.createObjectURL(wavBlob);
@@ -122,7 +124,7 @@ function VoiceCreate() {
     const formData = new FormData();
     formData.append('userId', sessionStorage.getItem('userId'));
     formData.append('name', voicePackName);
-    formData.append('voiceFile', new File([audioBlob], 'voice.wav', { type: 'audio/wav' }));
+    formData.append('voiceFile', new File([audioBlob], 'voice.wav', {type: 'audio/wav'}));
 
     try {
       const res = await fetch(`${process.env.REACT_APP_VOICEPACK_API_URL}/convert`, {
@@ -147,7 +149,7 @@ function VoiceCreate() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#f5f4ff] px-4 py-8">
       <div className="mb-8 cursor-pointer" onClick={() => navigate('/landing')}>
-        <img src={Logo} alt="Logo" />
+        <img src={Logo} alt="Logo"/>
       </div>
 
       <div className="w-full max-w-2xl bg-white shadow-lg rounded-xl p-8">
@@ -167,7 +169,8 @@ function VoiceCreate() {
             “안녕하세요. 목소리를 제공합니다. 잘 들리시나요? 감사합니다.”
           </p>
 
-          <div className="flex items-center space-x-4 mb-4">
+          <div className="flex items-center bg-[#f5f4ff] rounded-xl px-6 py-4 space-x-4">
+            {/* 마이크 버튼 */}
             <button
               onClick={isRecording ? handleStopRecording : handleStartRecording}
               className={`w-12 h-12 rounded-full flex items-center justify-center text-white text-lg transition-colors duration-300 ${
@@ -175,41 +178,36 @@ function VoiceCreate() {
               }`}
               disabled={!isFFmpegLoaded}
             >
-              🎤
+              <Mic/>
             </button>
 
-            <span className="text-sm w-20 text-right text-[#7C3AED]">
-              {String(Math.floor(timer / 60)).padStart(2, '0')} : {String(timer % 60).padStart(2, '0')}
-            </span>
-          </div>
-
-          <div className="flex items-center space-x-4">
             <button
               onClick={togglePlay}
-              className="w-14 h-14 rounded-full bg-[#7C3AED] text-white text-xl flex items-center justify-center shadow-md hover:bg-[#6b2ed4] transition"
+              className="w-12 h-12 rounded-full bg-[#7C3AED] text-white text-xl flex items-center justify-center shadow-md hover:bg-[#6b2ed4] transition disabled:bg-gray-300"
               disabled={!audioBlob}
             >
-              {isPlaying ? '⏸️' : '▶️'}
+              {isPlaying ? <Pause/> : <Play/>}
             </button>
 
-            <div ref={waveformRef} className="flex-1" />
+            {/* 파형 영역 */}
+            <div ref={waveformRef} className="flex-1 h-[60px]"/>
 
-            <span className="text-sm text-[#7C3AED] min-w-[60px] text-right">
-              {duration}
+            {/* 시간 */}
+            <span className="text-sm text-[#7C3AED] w-[60px] text-right">
+              {formatTime(audioBlob ? duration : timer)}
             </span>
           </div>
+
+          <button
+            onClick={handleCreateVoicePack}
+            className="mt-6 w-full py-3 bg-[#7C3AED] text-white rounded-md text-sm font-semibold disabled:opacity-50"
+            disabled={!voicePackName.trim() || !audioBlob}
+          >
+            보이스팩 생성
+          </button>
         </div>
-
-        <button
-          onClick={handleCreateVoicePack}
-          className="mt-6 w-full py-3 bg-[#7C3AED] text-white rounded-md text-sm font-semibold disabled:opacity-50"
-          disabled={!voicePackName.trim() || !audioBlob}
-        >
-          보이스팩 생성
-        </button>
       </div>
-    </div>
-  );
-}
+      );
+      }
 
-export default VoiceCreate;
+      export default VoiceCreate;
