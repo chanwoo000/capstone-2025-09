@@ -1,5 +1,4 @@
 // ✅ 완전 작동하는 버전: WaveSurfer 재생 + MediaRecorder 녹음 + FFmpeg 변환
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createFFmpeg, fetchFile } from '@ffmpeg/ffmpeg';
