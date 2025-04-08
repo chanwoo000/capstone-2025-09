@@ -1,8 +1,8 @@
-// ✅ 완전 작동하는 버전: WaveSurfer 재생 + MediaRecorder 녹음 + FFmpeg 변환
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createFFmpeg, fetchFile } from '@ffmpeg/ffmpeg';
 import WaveSurfer from 'wavesurfer.js';
+import MicrophonePlugin from 'wavesurfer.js/dist/plugins/microphone';
 import Logo from '../icons/covosLogo.svg';
 
 function VoiceCreate() {
@@ -45,6 +45,7 @@ function VoiceCreate() {
       barWidth: 2,
       height: 60,
       responsive: true,
+      plugins: [MicrophonePlugin.create()]
     });
 
     wavesurferRef.current.on('finish', () => setIsPlaying(false));
@@ -63,6 +64,9 @@ function VoiceCreate() {
     setTimer(0);
     audioChunksRef.current = [];
 
+    // 실시간 마이크 파형 시각화 시작
+    wavesurferRef.current.microphone.start();
+
     mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'audio/webm' });
     mediaRecorderRef.current.ondataavailable = (e) => {
       audioChunksRef.current.push(e.data);
@@ -70,6 +74,9 @@ function VoiceCreate() {
     mediaRecorderRef.current.onstop = async () => {
       clearInterval(timerRef.current);
       audioStreamRef.current?.getTracks().forEach((track) => track.stop());
+
+      // 실시간 마이크 파형 시각화 중단
+      wavesurferRef.current.microphone.stop();
 
       const webmBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
 
