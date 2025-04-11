@@ -153,7 +153,6 @@ function VoiceCreate() {
 
       if (!res.ok) throw new Error();
       alert('보이스팩 생성 완료!');
-      navigate('/voicestore'); // ✅ 200 성공 시에만 이동
     } catch (err) {
       console.error('업로드 실패:', err);
       alert('보이스팩 생성 실패');
