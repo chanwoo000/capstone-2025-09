@@ -172,7 +172,7 @@ function VoiceCreate() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#f5f4ff] px-4 py-8 relative">
       {loading && (
-        <div className="absolute inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="absolute inset-0 bg-[#f5f4ff] bg-opacity-40 backdrop-blur-sm flex items-center justify-center z-50">
           <ScaleLoader color="#ffffff" height={40} width={4} radius={2} margin={3}/>
         </div>
       )}
